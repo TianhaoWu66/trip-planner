@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trip Planner"
+  short_description: "Plan scenic trips with verified hotel & restaurant prices"
+  default_prompt: "Use $trip-planner to plan a detailed scenic multi-day itinerary with verified flights, hotels, restaurants, and a PDF guide."
