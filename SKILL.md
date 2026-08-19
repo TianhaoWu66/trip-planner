@@ -1,6 +1,6 @@
 ---
 name: trip-planner
-description: 'Plan scenic multi-day domestic trips (China) end-to-end and deliver a detailed, verified travel guide as Markdown + PDF. Use when the user asks for a travel itinerary/攻略 (e.g. 帮我制定北疆旅游攻略, 做个云南行程, 计划一次川西自驾). Workflow: first confirm travel dates and the scenic-spot list (from the user or researched in the browser on 小红书/马蜂窝), source long-haul transport from 12306 or airlines, plan inter-city routes with 高德地图, verify every ticket/reservation with a cited source (never fabricate), compare real hotel prices on Ctrip and Fliggy and verify restaurant ratings on Dianping (the customer must log in via the in-app browser first, ask for help when blocked by login or CAPTCHA), then export a polished PDF guide (plus an optional interactive map page for phone sharing). Also use when the user wants 需要预约/购票的清单, 每天吃什么, 住宿推荐, 给我个PDF, or 行程地图.'
+description: 'Plan scenic multi-day domestic trips (China) end-to-end and deliver a detailed, verified travel guide as Markdown + PDF. Use when the user asks for a travel itinerary/攻略 (e.g. 帮我制定北疆旅游攻略, 做个云南行程, 计划一次川西自驾). Workflow: first confirm travel dates and the scenic-spot list (from the user or researched via 携程攻略 sights page + 小红书/马蜂窝), source long-haul transport from 12306 or airlines, plan inter-city routes with 高德地图, verify every ticket/reservation with a cited source (never fabricate), compare real hotel prices on Ctrip and Fliggy and verify restaurant ratings on Dianping (the customer must log in via the in-app browser first, ask for help when blocked by login or CAPTCHA), then export a polished PDF guide (plus an optional interactive map page for phone sharing). Also use when the user wants 需要预约/购票的清单, 每天吃什么, 住宿推荐, 给我个PDF, or 行程地图.'
 ---
 
 # Trip Planner
@@ -31,7 +31,7 @@ Produce a complete, booking-ready travel guide for a scenic multi-day domestic t
 ### Step 1 — 确定时间与景点清单
 
 - 先和客户确认：**什么时候去**（季节/具体日期范围）、人数与房间数、预算档位、风景偏好。
-- 景点来源：客户自己的想法优先；客户没有明确清单时，用浏览器去**小红书/马蜂窝/知乎/抖音**收集攻略，给出候选景点 + 最佳季节 + 路线逻辑，与客户确认后再定。
+- 景点来源：客户自己的想法优先；客户没有明确清单时，用浏览器收集攻略给候选——**首选携程攻略的「城市景点页」**（`https://you.ctrip.com/sight/<城市拼音><数字>.html`，如南京 `nanjing9`；URL 从携程站内搜索/搜索结果页获取，不要凭记忆猜 ID），上面有**真实评分、点评数、门票价、是否需预约/限流**，适合做客观初筛；再用**小红书/马蜂窝/知乎/抖音**补「体验感、照片、避坑」等软信号。给出候选景点 + 最佳季节 + 路线逻辑，与客户确认后再定。
 - 产出：确认后的日期范围 + 景点清单，作为后面所有排期的前提。
 - **场景分流**：客户自带行程/景点清单 → 成文时做「可行性分析/验证」（第 1 章「先看结论·可行性速览」，逐项核对客户计划是否可行）；从零策划 → 不需要可行性分析，第 1 章直接写「行程总览 + 路线图」。
 
