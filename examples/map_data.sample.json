@@ -1,0 +1,87 @@
+{
+  "title": "北疆金秋 3 日行程地图",
+  "subtitle": "9.18–9.20 · 3 人 · 乌鲁木齐进出",
+  "description": "示例：北疆金秋 3 日行程交互地图（Trip Planner 生成）",
+  "coords": "wgs84",
+  "hotel": { "name": "如家素柏·云酒店(机场店)", "lat": 43.905, "lng": 87.48 },
+  "info": {
+    "hotel": "如家素柏·云酒店(机场店)",
+    "flight": "9.18 CZ6901 北京→乌鲁木齐",
+    "transit": "高德实测 · 自驾/公交已核对",
+    "budget": "人均约 ¥2,800"
+  },
+  "pay_summary": [
+    { "title": "现金", "text": "部分景区/县城只收现金，备少量现金", "warn": true },
+    { "title": "电子支付", "text": "市区餐厅/酒店均可支付宝/微信", "warn": false }
+  ],
+  "days": [
+    {
+      "id": 1,
+      "label": "D1",
+      "date": "9.18（周五）",
+      "title": "抵达 · 市区休整",
+      "color": "#ff9500",
+      "locations": [
+        {
+          "name": "新疆国际大巴扎",
+          "lat": 43.783,
+          "lng": 87.62,
+          "type": "spot",
+          "time": "16:00",
+          "desc": "大巴扎逛吃，感受民族风情",
+          "budget": "免费",
+          "detail": "地铁 1 号线二道桥站直达\n晚上 8 点后部分摊位收摊",
+          "pay": { "alipay": 1, "wechat": 1, "cash": 1 },
+          "xhsKeyword": "新疆国际大巴扎",
+          "dianpingKeyword": "新疆国际大巴扎"
+        },
+        {
+          "name": "丝路有约·新疆菜(大巴扎店)",
+          "lat": 43.784,
+          "lng": 87.619,
+          "type": "food",
+          "time": "19:00",
+          "desc": "大众点评高分新疆菜，人均 ¥90",
+          "budget": "人均 ¥90",
+          "detail": "点评评价数 3000+，饭点排队，建议电话订座",
+          "pay": { "alipay": 1, "wechat": 1 },
+          "dianpingKeyword": "丝路有约",
+          "xhsKeyword": "丝路有约"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "label": "D2",
+      "date": "9.19（周六）",
+      "title": "天山天池一日",
+      "color": "#34c759",
+      "locations": [
+        {
+          "name": "天山天池景区",
+          "lat": 43.8825,
+          "lng": 88.1281,
+          "type": "spot",
+          "time": "09:00",
+          "desc": "天池环湖栈道 + 马牙山索道",
+          "budget": "门票+区间车 ¥155",
+          "detail": "提前在「一部手机游天山」小程序预约\n景区区间车末班 18:00",
+          "pay": { "alipay": 1, "wechat": 1 },
+          "reserve": "https://example.com/booking",
+          "xhsKeyword": "天山天池",
+          "dianpingKeyword": "天山天池"
+        },
+        {
+          "name": "天池湖畔餐厅",
+          "lat": 43.884,
+          "lng": 88.127,
+          "type": "food",
+          "time": "—",
+          "desc": "备选：景区内简餐，人均较市区贵 ¥10-30",
+          "budget": "人均 ¥60",
+          "pay": { "alipay": 1, "wechat": 1, "cash": 0.5 }
+        }
+      ]
+    }
+  ]
+}

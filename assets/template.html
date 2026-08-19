@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title><!-- REPLACE: Trip Title --></title>
+<meta name="description" content="<!-- REPLACE: Trip Description -->">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- 底图瓦片默认 cartocdn（WGS84）。国内访问慢时可换成高德瓦片，但高德瓦片是 GCJ-02，
+     必须同时把所有坐标 GCJ-02→WGS84 后再用，否则点位偏移约 500m（build_map.py 已内置转换）。 -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   Design System — edit :root to change theme
+   ═══════════════════════════════════════════ */
+:root {
+  --bg-primary:    #ffffff;
+  --bg-secondary:  #f5f5f7;
+  --bg-tertiary:   #fbfbfd;
+  --bg-grouped:    #f2f2f7;
+  --bg-elevated:   #ffffff;
+  --text-primary:   #1d1d1f;
+  --text-secondary: #86868b;
+  --text-tertiary:  #aeaeb2;
+  --accent:        #0071e3;
+  --accent-hover:  #0077ed;
+  --tint-red:    #ff3b30;
+  --tint-orange: #ff9500;
+  --tint-green:  #34c759;
+  --tint-blue:   #007aff;
+  --tint-purple: #af52de;
+  --tint-pink:   #ff2d55;
+  --separator:  rgba(60, 60, 67, .12);
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:  0 4px 14px rgba(0,0,0,.08);
+  --shadow-lg:  0 8px 30px rgba(0,0,0,.12);
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+               "Helvetica Neue", "Arial", sans-serif;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.47059;
+  letter-spacing: -0.022em;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Map ── */
+#map { width: 100%; height: 40vh; min-height: 280px; position: sticky; top: 0; z-index: 100; }
+.locate-btn {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+  border: none; box-shadow: 0 1px 4px rgba(0,0,0,.18);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.locate-btn.active { color: #007aff; }
+@keyframes loc-pulse {
+  0%   { transform: scale(1); opacity: .55; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+.loc-pulse {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: rgba(0,122,255,.25);
+  animation: loc-pulse 1.6s ease-out infinite;
+}
+
+/* ── Tabs ── */
+.tabs {
+  display: flex; gap: 6px; padding: 12px 16px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  background: rgba(255,255,255,.85); -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px); position: sticky; top: 40vh; z-index: 99;
+  border-bottom: .5px solid var(--separator); scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0; padding: 7px 16px; border-radius: 980px; border: none;
+  background: var(--bg-grouped); color: var(--text-secondary);
+  font-size: 14px; font-weight: 500; cursor: pointer; transition: all .25s ease;
+  white-space: nowrap; letter-spacing: -0.01em;
+}
+.tab:active { transform: scale(.96); }
+.tab.active { background: var(--accent); color: #fff; }
+
+/* ── Main content ── */
+.content { max-width: 680px; margin: 0 auto; padding: 16px 16px calc(24px + var(--safe-bottom)); }
+
+/* ── Overview ── */
+.hero { text-align: center; padding: 28px 20px 20px; }
+.hero h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.15; }
+.hero .subtitle { font-size: 17px; color: var(--text-secondary); margin-top: 6px; font-weight: 400; }
+
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.info-card { background: var(--bg-elevated); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-sm); }
+.info-card .label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .02em; margin-bottom: 6px; }
+.info-card .value { font-size: 15px; font-weight: 600; line-height: 1.4; }
+
+/* ── Section headers ── */
+.section-head { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; padding: 20px 0 8px; }
+
+/* ── Day header ── */
+.day-head { padding: 20px 0 12px; }
+.day-head h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.day-head p { font-size: 15px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ── Route bar ── */
+.route-bar { background: var(--bg-elevated); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 14px; box-shadow: var(--shadow-sm); font-size: 13px; color: var(--text-secondary); line-height: 1.7; white-space: pre-line; }
+.route-bar strong { color: var(--text-primary); }
+
+/* ── Timeline ── */
+.timeline { position: relative; padding-left: 24px; }
+.timeline::before { content: ''; position: absolute; left: 7px; top: 20px; bottom: 20px; width: 1.5px; background: var(--separator); }
+.tl-item { position: relative; margin-bottom: 10px; }
+.tl-dot { position: absolute; left: -20px; top: 18px; width: 10px; height: 10px; border-radius: 50%; z-index: 1; box-shadow: 0 0 0 3px var(--bg-secondary); }
+.tl-dot.food    { background: var(--tint-red); }
+.tl-dot.spot    { background: var(--tint-blue); }
+.tl-dot.hotel   { background: var(--tint-orange); }
+.tl-dot.drink   { background: var(--tint-purple); }
+.tl-dot.transport { background: var(--text-tertiary); }
+
+/* ── Card ── */
+.card { background: var(--bg-elevated); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-sm); transition: box-shadow .25s ease; cursor: pointer; }
+.card:active { box-shadow: var(--shadow-md); }
+.card .time { font-size: 12px; font-weight: 600; color: var(--text-tertiary); letter-spacing: .01em; }
+.card .name { font-size: 17px; font-weight: 600; margin: 2px 0 4px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 6px; }
+.card .desc { font-size: 14px; color: var(--text-secondary); line-height: 1.45; }
+
+/* Badge */
+.badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 4px; }
+.badge.food   { background: rgba(255,59,48,.1);  color: var(--tint-red); }
+.badge.spot   { background: rgba(0,122,255,.1);  color: var(--tint-blue); }
+.badge.drink  { background: rgba(175,82,222,.1); color: var(--tint-purple); }
+
+/* Budget */
+.budget { display: inline-block; margin-top: 6px; padding: 3px 10px; background: var(--bg-grouped); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+
+/* Payment */
+.pays { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.pay { font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+.pay.ok  { background: rgba(52,199,89,.1);  color: var(--tint-green); }
+.pay.no  { background: rgba(255,59,48,.08); color: var(--tint-red); }
+.pay.idk { background: rgba(255,149,0,.1);  color: var(--tint-orange); }
+
+/* Links row */
+.links { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 8px 14px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 600; border: none; cursor: pointer;
+  text-decoration: none !important; transition: filter .2s;
+}
+.btn:active { filter: brightness(.9); }
+.btn.nav    { background: var(--accent); color: #fff; }
+.btn.xhs    { background: #ff2442; color: #fff; }
+.btn.dp     { background: #ffa700; color: #fff; }
+.btn.rsv    { background: var(--tint-green); color: #fff; }
+
+/* Action Sheet */
+.as-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.35); backdrop-filter: blur(2px);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .25s;
+}
+.as-overlay.show { opacity: 1; pointer-events: auto; }
+.as-sheet {
+  width: 100%; max-width: 420px;
+  padding: 0 8px 34px;
+  transform: translateY(100%); transition: transform .3s cubic-bezier(.22,1,.36,1);
+}
+.as-overlay.show .as-sheet { transform: translateY(0); }
+.as-group {
+  background: rgba(255,255,255,.88); backdrop-filter: blur(20px);
+  border-radius: 14px; overflow: hidden; margin-bottom: 8px;
+}
+.as-group .as-item {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 16px; font-size: 18px; color: #007aff; font-weight: 500;
+  border: none; background: none; width: 100%; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.as-group .as-item + .as-item { border-top: .5px solid rgba(0,0,0,.12); }
+.as-group .as-item:active { background: rgba(0,0,0,.06); }
+.as-cancel { font-weight: 600; }
+
+/* Details — default open */
+.details {
+  margin-top: 10px; padding-top: 10px;
+  border-top: .5px solid var(--separator);
+  font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+}
+.details.closed { display: none; }
+
+/* ── Overview day list ── */
+.day-list .card { margin-bottom: 8px; }
+.day-list .card .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+/* ── Payment summary ── */
+.pay-summary { background: var(--bg-elevated); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-sm); font-size: 13px; line-height: 1.7; margin-bottom: 10px; }
+.pay-summary h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.pay-summary .warn { color: var(--tint-red); }
+.pay-summary .ok-text { color: var(--tint-green); }
+
+/* ── Legend ── */
+.legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 0; font-size: 12px; color: var(--text-secondary); }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── Leaflet overrides ── */
+.leaflet-popup-content-wrapper { border-radius: var(--radius-md) !important; box-shadow: var(--shadow-lg) !important; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif !important; }
+.leaflet-popup-content { font-size: 14px !important; line-height: 1.5 !important; margin: 12px 14px !important; }
+.leaflet-popup-content a { color: var(--accent) !important; }
+.leaflet-popup-tip { background: #fff !important; }
+.leaflet-control-zoom a { width: 34px !important; height: 34px !important; line-height: 34px !important; font-size: 16px !important; border-radius: 10px !important; background: rgba(255,255,255,.85) !important; -webkit-backdrop-filter: blur(10px) !important; backdrop-filter: blur(10px) !important; border: .5px solid var(--separator) !important; color: var(--text-primary) !important; }
+.leaflet-control-zoom { border-radius: 12px !important; overflow: hidden; box-shadow: var(--shadow-md) !important; border: none !important; }
+.leaflet-control-attribution { font-size: 9px !important; opacity: .5; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+<div class="tabs" id="tabs"></div>
+<div class="content" id="content"></div>
+
+<script>
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  REPLACE THIS SECTION — Hotel and Days data                 ║
+// ╚══════════════════════════════════════════════════════════════╝
+//
+// 坐标一律用 WGS84（与 Leaflet/OSM 底图一致）。
+// 若坐标来自高德/百度（GCJ-02），勿手填偏移值——用 scripts/build_map.py 的 "coords": "gcj02" 自动转换。
+
+const HOTEL = { name: 'Hotel Name', lat: 0, lng: 0 };
+
+const DAYS = [
+  { id: 0, label: '总览', color: '#0071e3', locations: [] },
+  // { id: 1, label: 'D1 Label', date: '日期', title: '标题', color: '#ff9500', locations: [...] }
+  //
+  // Each location:
+  // {
+  //   name: 'Name', lat: 35.68, lng: 139.77,
+  //   type: 'food',           // food | spot | drink | hotel | transport
+  //   time: '18:30',          // or '—' for alternatives
+  //   desc: 'Description',
+  //   budget: '¥3,000',       // optional
+  //   detail: 'Details',      // optional, \n for newlines
+  //   pay: { cash: 1, card: 1, suica: 0.5 }, // optional, 1=yes 0.5=maybe
+  //   xhs: 'https://...',     // optional 小红书 link
+  //   xhsKeyword: '搜索词',    // optional, overrides name for XHS search
+  //   dianping: 'https://...',     // optional 大众点评 link (presence enables button)
+  //   dianpingKeyword: '搜索词',   // optional, overrides name for 大众点评 search
+  //   reserve: 'https://...', // optional reservation link
+  //   gmap: 'Google+Maps+Search+Query'
+  // }
+];
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  REPLACE THIS SECTION — Overview tab content                ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+function overviewContent() {
+  return `
+<div class="hero"><h1><!-- REPLACE: Title --></h1><p class="subtitle"><!-- REPLACE: Subtitle --></p></div>
+<div class="info-grid">
+  <div class="info-card"><div class="label">酒店</div><div class="value"><!-- REPLACE --></div></div>
+  <div class="info-card"><div class="label">航班</div><div class="value"><!-- REPLACE --></div></div>
+  <div class="info-card"><div class="label">交通卡</div><div class="value"><!-- REPLACE --></div></div>
+  <div class="info-card"><div class="label">预估费用</div><div class="value"><!-- REPLACE --></div></div>
+</div>
+<div class="section-head">行程概览</div>
+<div class="day-list">${DAYS.slice(1).map(d=>`<div class="card" onclick="go(${d.id})"><div class="name"><span class="dot" style="background:${d.color}"></span>${d.label} · ${d.title}</div><div class="desc">${d.date}</div></div>`).join('')}</div>
+<div class="section-head">支付提醒</div>
+<!-- REPLACE: Add pay-summary cards as needed -->
+<div class="section-head">图例</div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--tint-red)"></div>餐厅</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--tint-blue)"></div>景点</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--tint-purple)"></div>饮品</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--tint-orange)"></div>酒店</div>
+</div>`;
+}
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  ENGINE — Do not modify below unless customizing behavior   ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+const map = L.map('map', { center: [HOTEL.lat || 35.0, HOTEL.lng || 105.0], zoom: 12, zoomControl: false, attributionControl: true });
+L.control.zoom({ position: 'topright' }).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+
+/* ── Geolocation ── */
+const LocateControl = L.Control.extend({
+  options: { position: 'bottomright' },
+  onAdd() {
+    const btn = L.DomUtil.create('button', 'locate-btn');
+    btn.innerHTML = '📍';
+    btn.title = '我的位置';
+    L.DomEvent.disableClickPropagation(btn);
+    btn.addEventListener('click', () => {
+      btn.classList.add('active');
+      map.locate({ setView: true, maxZoom: 15 });
+    });
+    this._btn = btn;
+    return btn;
+  }
+});
+new LocateControl().addTo(map);
+let locMarker, locCircle;
+map.on('locationfound', e => {
+  const r = e.accuracy / 2;
+  if (locMarker) { locMarker.setLatLng(e.latlng); locCircle.setLatLng(e.latlng).setRadius(r); }
+  else {
+    locMarker = L.marker(e.latlng, {
+      icon: L.divIcon({ className:'', html:'<div style="width:14px;height:14px;border-radius:50%;background:#007aff;border:2.5px solid #fff;box-shadow:0 0 6px rgba(0,122,255,.5)"></div><div class="loc-pulse" style="position:absolute;top:0;left:0"></div>', iconSize:[14,14], iconAnchor:[7,7] }),
+      zIndexOffset: 2000
+    }).addTo(map);
+    locCircle = L.circle(e.latlng, { radius: r, color: '#007aff', fillColor: '#007aff', fillOpacity: .08, weight: 1 }).addTo(map);
+  }
+});
+map.on('locationerror', () => {});
+
+function icon(color, emoji) {
+  return L.divIcon({ className: '', html: `<div style="width:28px;height:28px;border-radius:50%;background:${color};border:2.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.18)">${emoji||''}</div>`, iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16] });
+}
+
+if (HOTEL.lat) L.marker([HOTEL.lat, HOTEL.lng], { icon: icon('#ff9500','🏨'), zIndexOffset: 1000 }).addTo(map).bindPopup(`<b>${HOTEL.name}</b>`);
+
+let markers = [], polylines = [];
+const emojis = { food:'🍽️', spot:'📍', hotel:'🏨', transport:'🚃', drink:'🍺' };
+
+function clearMap() { markers.forEach(m=>map.removeLayer(m)); polylines.forEach(p=>map.removeLayer(p)); markers=[]; polylines=[]; }
+
+function showDay(idx) {
+  clearMap();
+  if (idx === 0) {
+    const pts = [];
+    DAYS.forEach(d => d.locations.forEach(l => { if(l.lat) pts.push([l.lat,l.lng]); }));
+    if(pts.length) map.fitBounds(pts, {padding:[30,30]});
+    DAYS.slice(1).forEach(d => {
+      d.locations.filter(l=>l.time!=='—').forEach(l => {
+        const m = L.circleMarker([l.lat,l.lng], { radius:4, fillColor:d.color, color:'#fff', weight:1.5, fillOpacity:.9 }).addTo(map).bindPopup(`<b>${l.name}</b><br><span style="color:#86868b">${d.label}</span>`);
+        markers.push(m);
+      });
+    });
+    return;
+  }
+  const day = DAYS.find(d=>d.id===idx);
+  if(!day) return;
+  const coords = [];
+  day.locations.forEach(l => {
+    if(!l.lat) return;
+    const m = L.marker([l.lat,l.lng], { icon: icon(day.color, emojis[l.type]||'📌') }).addTo(map);
+    const gmapQ = l.gmap||encodeURIComponent(l.name);
+    m.bindPopup(`<b>${l.name}</b>${l.time!=='—'?'<br><span style="color:#86868b">'+l.time+'</span>':''}<br>${l.desc}${l.budget?'<br><span style="color:#ff9500">'+l.budget+'</span>':''}<br><a href="#" onclick="event.preventDefault();openAS('${l.name.replace(/'/g,"\\'")}',${l.lat},${l.lng},'${gmapQ}')">📍 导航</a>${l.xhs?' · <a href="'+l.xhs+'" target="_blank">📕 小红书</a>':''}`);
+    markers.push(m);
+    if(l.time!=='—') coords.push([l.lat,l.lng]);
+  });
+  if(coords.length>1) { const pl = L.polyline(coords, { color:day.color, weight:2.5, opacity:.5, dashArray:'6,5' }).addTo(map); polylines.push(pl); }
+  if(coords.length) map.fitBounds(coords, { padding:[40,40], maxZoom:14 });
+}
+
+// ══════════ RENDER ══════════
+function payChips(pay) {
+  if(!pay) return '';
+  let h = '<div class="pays">';
+  const m = { cash:'💴', card:'💳', alipay:'支付宝', wechat:'微信' };
+  for(const [k,label] of Object.entries(m)) {
+    if(pay[k]!==undefined) { const c = pay[k]===1?'ok':pay[k]===0.5?'idk':'no'; h += `<span class="pay ${c}">${label}</span>`; }
+  }
+  return h+'</div>';
+}
+
+// ── 运行环境检测：在第三方 App 的 WebView 里，自定义 scheme 基本会被拦截 ──
+const IN_APP_WEBVIEW = (() => {
+  const ua = (navigator.userAgent || '').toLowerCase();
+  return /micromessenger|xhs|xhsdiscover|discover\/|tiktok|aweme|weibo|qq\/|qqbrowser|alipayclient|dingtalk|lark|feishu|ucbrowser|baiduboxapp|toutiao|newsarticle/.test(ua);
+})();
+
+function xhsKeyword(loc) {
+  if(loc.xhsKeyword) return loc.xhsKeyword.trim();
+  return (loc.name||'').replace(/⭐.*$/g,'').replace(/（.*?）/g,'').replace(/\(.*?\)/g,'').replace(/\s+/g,' ').trim();
+}
+function xhsAppUrl(loc) { return `xhsdiscover://search/result?keyword=${encodeURIComponent(xhsKeyword(loc))}&target_search=notes&source=deeplink`; }
+function xhsWebUrl(loc) { return `https://www.xiaohongshu.com/search_result?keyword=${encodeURIComponent(xhsKeyword(loc))}&source=web_explore_feed`; }
+
+function dpKeyword(loc) {
+  if(loc.dianpingKeyword) return loc.dianpingKeyword.trim();
+  return (loc.name||'').replace(/⭐.*$/g,'').replace(/（.*?）/g,'').replace(/\(.*?\)/g,'').replace(/\s+/g,' ').trim();
+}
+function dpAppUrl(loc) { return `dianping://searchshoplist?keyword=${encodeURIComponent(dpKeyword(loc))}`; }
+function dpWebUrl(loc) { return `https://m.dianping.com/searchshop?keyword=${encodeURIComponent(dpKeyword(loc))}`; }
+
+window._extLocs = {};
+DAYS.forEach(d => d.locations.forEach(l => { window._extLocs[`${d.id}::${l.name}`] = l; }));
+window._xhsLocs = window._extLocs;
+
+function openExt(key, kind) {
+  const loc = window._extLocs[key]; if(!loc) return false;
+  if (IN_APP_WEBVIEW) {
+    window.location.href = kind==='dp' ? dpWebUrl(loc) : xhsWebUrl(loc);
+  } else {
+    window.location.href = kind==='dp' ? dpAppUrl(loc) : xhsAppUrl(loc);
+  }
+  return false;
+}
+function openXhs(key) { return openExt(key, 'xhs'); }
+function openDp(key)  { return openExt(key, 'dp'); }
+
+function locCard(loc, dayIdx) {
+  const dot = loc.type==='food'?'food':loc.type==='spot'?'spot':loc.type==='drink'?'drink':loc.type==='hotel'?'hotel':'transport';
+  const bdg = loc.type==='food'?'<span class="badge food">餐</span>':loc.type==='spot'?'<span class="badge spot">景</span>':loc.type==='drink'?'<span class="badge drink">饮</span>':'';
+  const uid = `d${dayIdx}-${loc.name.replace(/\W/g,'')}`;
+  const locKey = `${dayIdx}::${loc.name}`;
+  const gmapQ = loc.gmap||encodeURIComponent(loc.name);
+  let lnk = `<button class="btn nav" onclick="openAS('${loc.name.replace(/'/g,"\\'")}',${loc.lat},${loc.lng},'${gmapQ}')">📍 导航</button>`;
+  if(loc.xhs||loc.xhsKeyword) {
+    const xhsHref = IN_APP_WEBVIEW ? xhsWebUrl(loc) : xhsAppUrl(loc);
+    const xhsLabel = IN_APP_WEBVIEW ? '📕 小红书' : '📕 小红书 App';
+    lnk += `<a href="${xhsHref}" onclick="return openXhs('${locKey.replace(/'/g,"\\'")}')" class="btn xhs">${xhsLabel}</a>`;
+  }
+  const dpEnabled = loc.dianping !== false &&
+    (loc.dianping || loc.dianpingKeyword || loc.type==='food' || loc.type==='drink');
+  if(dpEnabled) {
+    const dpHref = IN_APP_WEBVIEW ? dpWebUrl(loc) : dpAppUrl(loc);
+    const dpLabel = IN_APP_WEBVIEW ? '🍜 大众点评' : '🍜 大众点评 App';
+    lnk += `<a href="${dpHref}" onclick="return openDp('${locKey.replace(/'/g,"\\'")}')" class="btn dp">${dpLabel}</a>`;
+  }
+  if(loc.reserve) lnk += `<a href="${loc.reserve}" target="_blank" class="btn rsv">📅 预约</a>`;
+  return `<div class="tl-item"><div class="tl-dot ${dot}"></div><div class="card" onclick="if(!event.target.closest('.btn,.links'))toggle('${uid}')"><div class="time">${loc.time!=='—'?loc.time:'备选'}</div><div class="name">${bdg} ${loc.name}</div><div class="desc">${loc.desc}</div>${loc.budget?'<div class="budget">'+loc.budget+'</div>':''}${payChips(loc.pay)}<div class="links">${lnk}</div>${loc.detail?'<div class="details" id="'+uid+'">'+loc.detail.replace(/\n/g,'<br>')+'</div>':''}</div></div>`;
+}
+
+function renderDay(idx) {
+  const d = DAYS.find(x=>x.id===idx); if(!d) return '';
+  const main = d.locations.filter(l=>l.time!=='—');
+  const alt = d.locations.filter(l=>l.time==='—');
+  let h = `<div class="day-head"><h2>${d.title}</h2><p>${d.date}</p></div>`;
+  if(main.length) { h += '<div class="section-head">行程</div><div class="timeline">'; main.forEach(l => h += locCard(l, idx)); h += '</div>'; }
+  if(alt.length) { h += '<div class="section-head">备选</div><div class="timeline">'; alt.forEach(l => h += locCard(l, idx)); h += '</div>'; }
+  return h;
+}
+
+// ══════════ NAV ══════════
+let cur = 0;
+const tabsEl = document.getElementById('tabs');
+const contentEl = document.getElementById('content');
+
+DAYS.forEach(d => {
+  const btn = document.createElement('button');
+  btn.className = 'tab' + (d.id===0?' active':'');
+  btn.dataset.day = d.id;
+  btn.textContent = d.label;
+  tabsEl.appendChild(btn);
+});
+
+function go(idx) {
+  cur = idx;
+  tabsEl.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', +t.dataset.day===idx));
+  contentEl.innerHTML = idx===0 ? overviewContent() : renderDay(idx);
+  showDay(idx);
+  contentEl.scrollTo({top:0});
+  const tab = tabsEl.querySelector(`[data-day="${idx}"]`);
+  if(tab) tab.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+}
+
+function toggle(id) { const el=document.getElementById(id); if(el) el.classList.toggle('closed'); }
+
+tabsEl.addEventListener('click', e => { const t=e.target.closest('.tab'); if(t) go(+t.dataset.day); });
+
+go(0);
+
+/* ── Action Sheet for Navigation ── */
+const asOverlay = document.createElement('div');
+asOverlay.className = 'as-overlay';
+asOverlay.innerHTML = `<div class="as-sheet">
+  <div class="as-group" id="as-opts"></div>
+  <div class="as-group"><button class="as-item as-cancel" onclick="closeAS()">取消</button></div>
+</div>`;
+document.body.appendChild(asOverlay);
+asOverlay.addEventListener('click', e => { if (e.target === asOverlay) closeAS(); });
+
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+function amapAppUrl(name, lat, lng) {
+  const scheme = IS_IOS ? 'iosamap' : 'androidamap';
+  // dev=1 = WGS84 真实经纬度（与 Leaflet/OSM 坐标一致），dev=0 会被当成高德 GCJ-02 偏移约500m
+  return `${scheme}://viewMap?sourceApplication=trip&poiname=${encodeURIComponent(name)}&lat=${lat}&lon=${lng}&dev=1`;
+}
+function amapWebUrl(name, lat, lng) {
+  return `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(name)}&src=trip&coordinate=wgs84&callnative=1`;
+}
+function openAmap(name, lat, lng) {
+  // 华为/EMUI/鸿蒙浏览器对 androidamap:// 自定义协议支持差（未装 App 或 scheme 被拦都会“点了没反应”）。
+  // 统一走 uri.amap.com 官方网页链接：已装高德 App 会自动拉起，未装则显示网页版地图，兼容性最好。
+  window.open(amapWebUrl(name, lat, lng), '_blank');
+}
+
+function openAS(name, lat, lng, gmap) {
+  const q = gmap || encodeURIComponent(name);
+  const encName = encodeURIComponent(name);
+  const safeName = name.replace(/'/g,"\\'");
+  // WebView 内 maps:// 通常被拦截，改用 https Apple Maps URL —— iOS 系统会自动拉起 Apple Maps
+  const appleUrl = IN_APP_WEBVIEW
+    ? `https://maps.apple.com/?q=${lat},${lng}&ll=${lat},${lng}&name=${encName}`
+    : `maps://maps.apple.com/?q=${lat},${lng}&name=${encName}`;
+  const googleUrl = `https://www.google.com/maps/search/?api=1&query=${q}`;
+  document.getElementById('as-opts').innerHTML =
+    `<button class="as-item" onclick="openAmap('${safeName}',${lat},${lng});closeAS()">🧭 高德地图</button>` +
+    `<button class="as-item" onclick="window.open('${appleUrl}');closeAS()">🍎 Apple Maps</button>` +
+    `<button class="as-item" onclick="window.open('${googleUrl}');closeAS()">🗺️ Google Maps</button>`;
+  asOverlay.classList.add('show');
+}
+function closeAS() { asOverlay.classList.remove('show'); }
+</script>
+</body>
+</html>

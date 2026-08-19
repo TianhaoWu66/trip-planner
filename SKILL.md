@@ -1,22 +1,18 @@
 ---
 name: trip-planner
-description: 'Plan scenic multi-day domestic trips (China) end-to-end and deliver a detailed, verified travel guide as Markdown + PDF. Use when the user asks for a travel itinerary/攻略 (e.g. 帮我制定北疆旅游攻略, 做个云南行程, 计划一次川西自驾). Workflow: first confirm travel dates and the scenic-spot list (from the user or researched in the browser on 小红书/马蜂窝), source long-haul transport from 12306 or airlines, plan inter-city routes with 高德地图, verify every ticket/reservation with a cited source (never fabricate), compare real hotel prices on Ctrip and Fliggy and verify restaurant ratings on Dianping (the customer must log in via the in-app browser first, ask for help when blocked by login or CAPTCHA), then export a polished PDF. Also use when the user wants 需要预约/购票的清单, 每天吃什么, 住宿推荐, or 给我个PDF.'
+description: 'Plan scenic multi-day domestic trips (China) end-to-end and deliver a detailed, verified travel guide as Markdown + PDF. Use when the user asks for a travel itinerary/攻略 (e.g. 帮我制定北疆旅游攻略, 做个云南行程, 计划一次川西自驾). Workflow: first confirm travel dates and the scenic-spot list (from the user or researched in the browser on 小红书/马蜂窝), source long-haul transport from 12306 or airlines, plan inter-city routes with 高德地图, verify every ticket/reservation with a cited source (never fabricate), compare real hotel prices on Ctrip and Fliggy and verify restaurant ratings on Dianping (the customer must log in via the in-app browser first, ask for help when blocked by login or CAPTCHA), then export a polished PDF guide (plus an optional interactive map page for phone sharing). Also use when the user wants 需要预约/购票的清单, 每天吃什么, 住宿推荐, 给我个PDF, or 行程地图.'
 ---
 
 # Trip Planner
 
 ## Overview
 
-Produce a complete, booking-ready travel guide for a scenic multi-day domestic trip: lock dates and the scenic-spot list first, verify transport (long-haul from 12306/airlines, inter-city with 高德地图), verify every ticket/reservation with a cited source (no fabrication), then verify real accommodation prices (Ctrip/Fliggy) and restaurant ratings (Dianping) — the customer must be logged in via the in-app browser first — and finally export a well-formatted Markdown + PDF guide. Only read prices/reviews; never place orders, change bookings, or pay without explicit user consent.
+Produce a complete, booking-ready travel guide for a scenic multi-day domestic trip: lock dates and the scenic-spot list first, verify transport (long-haul from 12306/airlines, inter-city with 高德地图), verify every ticket/reservation with a cited source (no fabrication), then verify real accommodation prices (Ctrip/Fliggy) and restaurant ratings (Dianping) — the customer must be logged in via the in-app browser first — and finally export a well-formatted Markdown + PDF guide (plus an optional interactive map page for phone sharing). Only read prices/reviews; never place orders, change bookings, or pay without explicit user consent.
 
-## 信息收集前置条件：先让客户登录 + 数据带来源
+## 信息收集前置条件（详见 Step 0 与 Constraints）
 
-- **每次上网取数前先重新打开侧边栏页面**：应用内浏览器（侧边栏）的标签页会在轮次之间被清理，**不要复用上一轮留下的标签**；每次需要取数（查房价、查餐厅、查路线）时，先在侧边栏新建标签页并重新打开目标页面（如携程/大众点评/高德 ditu.amap.com/dir）。若标签失效报错，直接新建标签即可。
-- **数据来源**：住宿在「携程 + 飞猪」两家比价；餐饮以「大众点评」登录实测为准（**美团网页版不可用，不做美团交叉验证**），必要时叠加 Trip.com/携程美食/小红书作补充参考。所有数据标注平台来源。
-- 携程/飞猪（住宿实测价）和大众点评（餐厅评分、人均）都需要客户登录才能可靠取数。
-- **登录前置 = 策划第 0 步，而不是行程做完后的补救**：开始任何取数/策划前，先用**应用内浏览器（侧边栏）直接打开各平台页面**（携程 hotels.ctrip.com、大众点评 www.dianping.com/<城市拼音>、高德 ditu.amap.com/dir、需要时飞猪 www.fliggy.com/jiudian/），让用户**一次性全部扫码登录**；未登录时不开始取数，更不要等攻略交付后才补一句「需要登录」。
-- 大众点评 PC 端未登录基本无法搜索取数；若扫码页显示「二维码已失效」，点击「请点击刷新」再让客户扫。
-- **登录/人机验证一律交给客户（硬性要求）**：遇到登录墙、短信验证码、滑块/点选验证、风控验证页（如平台风控验证页）或安全拦截时，**立即停下并请客户在侧边栏完成**；AI 不尝试自动破解、不绕过安全页、不反复刷新重试触发风控。客户完成后继续。
+- **未登录不取数**：策划第 0 步先引导客户在侧边栏登录携程/大众点评/高德（需要时飞猪）；登录/人机验证一律交给客户，AI 不代解、不绕过、不重试触发风控。
+- **数据必须带来源**：住宿「携程 + 飞猪」比价，餐厅以大众点评登录实测为准（不做美团交叉），所有数字标注平台与核实日期。
 
 ## Workflow
 
@@ -94,9 +90,22 @@ python scripts/build_pdf.py input.md output.pdf --title "标题"
 
 - 脚本完成 Markdown→HTML（scripts/md_to_html.py）→ Edge headless 打印 → 页数质检。交付前用 `pdftoppm`（poppler）渲染 PNG 检查排版无缺陷。交付文件放客户 `outputs/` 目录。
 
-### Step 10 — 交付与跟进
+### Step 10 — 生成交互地图（可选，推荐）
 
-- 交付 `.md` 与 `.pdf`，PDF 用 `:codex-file-citation{path="..." purpose="output"}` 引用一次。
+- 用 `scripts/build_map.py` 把已核实的行程数据渲染成单文件交互地图页（Leaflet，手机浏览器可直接打开/分享，含导航/点评/小红书直达按钮）。
+- 数据来源与字段说明见 `references/build-map.md`；**只复用 Step 1–8 已核实的数据，不得在地图里新造价格/评分/门票/时间**。
+- 坐标默认 WGS84；若从高德/百度取数，在 `map_data.json` 顶层写 `"coords": "gcj02"`，脚本自动转换（否则点位偏移约 500m）。
+- 运行：
+
+```bash
+python scripts/build_map.py map_data.json outputs/trip_map.html
+```
+
+- 交付前按 `references/build-map.md` 的验证清单检查：信息卡/每天点位/时间轴与 PDF 一致，导航与点评/小红书按钮可用。
+
+### Step 11 — 交付与跟进
+
+- 交付 `.md` 与 `.pdf`（若生成了地图，加交付 `trip_map.html`）；PDF 用 `:codex-file-citation{path="..." purpose="output"}` 引用一次。
 - 提醒客户紧急预订：内段航班、景区住宿、门票。
 - 客户已在侧边栏登录过携程/大众点评时直接复用会话；不需要重新登录。
 - 交付时若发现还有本可核实、却因未登录而标成「待核实」的项（说明 Step 0 未落实），先补齐登录核实再交付，而不是把「需要登录」作为事后告知。
@@ -113,12 +122,14 @@ python scripts/build_pdf.py input.md output.pdf --title "标题"
 
 - `scripts/build_pdf.py` — Markdown → A4 PDF（Edge headless）+ 页数质检；用 Codex 运行时 Python 运行。
 - `scripts/md_to_html.py` — 供 build_pdf.py 调用的转换器，也可单独生成 HTML 预览。
+- `scripts/build_map.py` — 把 map_data.json + assets/template.html 渲染成单文件交互地图（内置 GCJ-02→WGS84 转换）。
 
 ## References（按需阅读）
 
 - `references/verify-hotel-prices.md` — Step 5 时读：携程列表 URL 模板、登录前置、每间酒店需记录什么。
 - `references/verify-restaurants.md` — Step 6 时读：大众点评登录（二维码失效刷新）、城市拼音→cityId 提取、搜索 URL 模板、替代数据源。
 - `references/route-and-transit.md` — Step 3 时读：高德网页版驾车+公交查询操作（选择器、模式切换、提取字段）、12306 火车、景区区间车注意点。
+- `references/build-map.md` — Step 10 时读：地图数据来源、map_data.json 结构、WGS84/GCJ-02 坐标、验证清单。
 
 ## Constraints
 
@@ -127,3 +138,4 @@ python scripts/build_pdf.py input.md output.pdf --title "标题"
 - 策划开始前（Step 0）先引导客户登录携程/大众点评（需要时含飞猪），未登录不开始取数；每次上网取数前重新打开侧边栏标签页，不复用已失效的标签；登录/人机验证一律请客户在侧边栏完成，AI 不代解、不绕过、不重试触发风控。
 - 关键数据必须带来源与核实日期；住宿价格在携程/飞猪比价，餐厅评分以大众点评登录实测为准（不做美团交叉验证）。
 - 攻略用客户语言（国内默认中文），格式统一，保证能干净导出 PDF。
+- 地图（如生成）只复用已核实数据：价格/评分/门票/时间与 PDF 一致；坐标标 WGS84，高德/百度取数用 `"coords": "gcj02"` 自动转换。
